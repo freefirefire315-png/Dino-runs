@@ -5,133 +5,161 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://adsgram.ai/sdk.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #f7f7f7; touch-action: none; -webkit-user-select: none; }
-        #game { width: 100vw; height: 250px; background: white; position: relative; border-bottom: 2px solid #535353; margin-top: 50px; }
-        #dino { width: 44px; height: 44px; position: absolute; bottom: 0; left: 40px; font-size: 40px; z-index: 10; transform: scaleX(-1); will-change: bottom; }
-        .obstacle { position: absolute; bottom: 0; display: flex; align-items: center; justify-content: center; will-change: left; white-space: nowrap; }
-        #score-container { padding: 10px 20px; display: flex; justify-content: space-between; font-size: 20px; color: #535353; font-weight: bold; }
-        #restart { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border: 2px solid #535353; border-radius: 8px; text-align: center; z-index: 100; }
-        button { background: #535353; color: white; border: none; padding: 10px 20px; cursor: pointer; font-family: inherit; font-weight: bold; border-radius: 4px; }
+        body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #87CEEB; touch-action: none; -webkit-user-select: none; }
+        
+        /* Game Container */
+        #game { width: 100vw; height: 300px; background: #f7f7f7; position: relative; border-bottom: 4px solid #535353; margin-top: 50px; overflow: hidden; }
+        
+        /* Background Elements */
+        #sun { position: absolute; top: 20px; right: 40px; font-size: 40px; z-index: 1; }
+        .cloud { position: absolute; font-size: 30px; color: white; z-index: 1; filter: opacity(0.8); }
+        .ground-detail { position: absolute; bottom: 5px; height: 2px; background: #d3d3d3; z-index: 2; }
+
+        /* Characters */
+        #dino { width: 50px; height: 50px; position: absolute; bottom: 0; left: 40px; font-size: 44px; z-index: 10; transform: scaleX(-1); will-change: bottom; }
+        .obstacle { position: absolute; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 11; white-space: nowrap; }
+        
+        /* UI */
+        #ui { padding: 10px 20px; display: flex; justify-content: space-between; font-size: 20px; color: #535353; font-weight: bold; background: #f7f7f7; }
+        #restart { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border: 3px solid #535353; border-radius: 12px; text-align: center; z-index: 100; box-shadow: 0 0 20px rgba(0,0,0,0.2); }
+        button { background: #535353; color: white; border: none; padding: 12px 24px; cursor: pointer; font-family: inherit; font-size: 18px; border-radius: 5px; }
     </style>
 </head>
 <body onclick="jump()" ontouchstart="jump()">
-    <div id="score-container">
+    <div id="ui">
         <span>HI <span id="high-score">00000</span></span>
         <span id="score">00000</span>
     </div>
+    
     <div id="game">
+        <div id="sun">☀️</div>
         <div id="dino">🦖</div>
     </div>
+
     <div id="restart">
-        <h2 style="color:#535353; margin:0">G A M E  O V E R</h2>
-        <p id="final-score"></p>
+        <h2 style="color:#535353; margin:0 0 10px 0;">G A M E  O V E R</h2>
         <button onclick="location.reload()">RETRY</button>
     </div>
 
-    <script>
-        const dino = document.getElementById("dino");
-        const scoreTxt = document.getElementById("score");
-        const highScoreTxt = document.getElementById("high-score");
-        
-        let score = 0;
-        let gameSpeed = 7; 
-        let gameOver = false;
-        let gravity = 0.6;
-        let velocity = 0;
-        let position = 0;
+<script>
+    const dino = document.getElementById("dino");
+    const game = document.getElementById("game");
+    const scoreTxt = document.getElementById("score");
+    const highScoreTxt = document.getElementById("high-score");
+    
+    let score = 0;
+    let gameSpeed = 7; 
+    let gameOver = false;
+    let velocity = 0;
+    let position = 0;
+    let gravity = 0.6;
 
-        let hi = localStorage.getItem("dino-hi") || "0";
-        highScoreTxt.innerText = hi.padStart(5, '0');
+    // Set High Score
+    highScoreTxt.innerText = (localStorage.getItem("dino-hi") || "0").padStart(5, '0');
 
-        function jump() {
-            if (position === 0 && !gameOver) {
-                velocity = 12; 
-                requestAnimationFrame(applyPhysics);
-            }
+    function jump() {
+        if (position === 0 && !gameOver) {
+            velocity = 13; 
+            requestAnimationFrame(physics);
         }
+    }
 
-        function applyPhysics() {
+    function physics() {
+        if (gameOver) return;
+        position += velocity;
+        velocity -= gravity;
+        if (position <= 0) {
+            position = 0;
+            velocity = 0;
+            dino.style.bottom = "0px";
+            return;
+        }
+        dino.style.bottom = position + "px";
+        requestAnimationFrame(physics);
+    }
+
+    function spawnObstacle() {
+        if (gameOver) return;
+        const ob = document.createElement("div");
+        ob.classList.add("obstacle");
+        
+        let rand = Math.random();
+        if (rand < 0.15 && score > 25) { 
+            ob.innerHTML = "🦅"; ob.style.bottom = "70px"; ob.style.fontSize = "35px"; 
+        } else if (rand < 0.4) { 
+            ob.innerHTML = "🌵🌵"; ob.style.fontSize = "32px";
+        } else if (rand < 0.55 && score > 50) { 
+            ob.innerHTML = "🌵🌵🌵"; ob.style.fontSize = "32px";
+        } else { 
+            ob.innerHTML = "🌵"; ob.style.fontSize = "32px";
+        }
+        
+        game.appendChild(ob);
+        let left = window.innerWidth;
+        
+        function move() {
             if (gameOver) return;
-            position += velocity;
-            velocity -= gravity;
-            if (position <= 0) {
-                position = 0;
-                velocity = 0;
-                dino.style.bottom = "0px";
+            left -= gameSpeed;
+            ob.style.left = left + "px";
+
+            let d = dino.getBoundingClientRect();
+            let o = ob.getBoundingClientRect();
+
+            // Precise collision
+            if (d.right - 15 > o.left && d.left + 15 < o.right && d.bottom - 8 > o.top) {
+                endGame();
                 return;
             }
-            dino.style.bottom = position + "px";
-            requestAnimationFrame(applyPhysics);
+
+            if (left < -150) {
+                ob.remove();
+                score++;
+                scoreTxt.innerText = score.toString().padStart(5, '0');
+                if (score % 7 === 0) gameSpeed += 0.3; 
+            } else { requestAnimationFrame(move); }
         }
+        requestAnimationFrame(move);
+        setTimeout(spawnObstacle, Math.random() * 1500 + (1200 - gameSpeed * 20));
+    }
 
-        function spawnObstacle() {
-            if (gameOver) return;
+    function addCloud() {
+        if (gameOver) return;
+        const c = document.createElement("div");
+        c.className = "cloud";
+        c.innerHTML = "☁️";
+        c.style.top = Math.random() * 80 + "px";
+        game.appendChild(c);
+        let p = window.innerWidth;
+        function m() { p -= 1.5; c.style.left = p + "px"; if (p > -60 && !gameOver) requestAnimationFrame(m); else c.remove(); }
+        m();
+        setTimeout(addCloud, 3000 + Math.random() * 3000);
+    }
 
-            const obstacle = document.createElement("div");
-            obstacle.classList.add("obstacle");
-            
-            // OBSTACLE TYPE LOGIC
-            let chance = Math.random();
-            if (chance < 0.2 && score > 30) {
-                obstacle.innerHTML = "🦅"; // Bird
-                obstacle.style.bottom = "65px";
-                obstacle.style.fontSize = "32px";
-            } else if (chance < 0.5) {
-                obstacle.innerHTML = "🌵🌵"; // Double Cactus
-                obstacle.style.fontSize = "30px";
-            } else if (chance < 0.65 && score > 50) {
-                obstacle.innerHTML = "🌵🌵🌵"; // Triple Cactus (Hard!)
-                obstacle.style.fontSize = "30px";
-            } else {
-                obstacle.innerHTML = "🌵"; // Single Cactus
-                obstacle.style.fontSize = "30px";
-            }
+    function addGroundDetail() {
+        if (gameOver) return;
+        const g = document.createElement("div");
+        g.className = "ground-detail";
+        g.style.width = (Math.random() * 20 + 5) + "px";
+        g.style.left = window.innerWidth + "px";
+        game.appendChild(g);
+        let p = window.innerWidth;
+        function m() { p -= gameSpeed; g.style.left = p + "px"; if (p > -30 && !gameOver) requestAnimationFrame(m); else g.remove(); }
+        m();
+        setTimeout(addGroundDetail, 200);
+    }
 
-            document.getElementById("game").appendChild(obstacle);
-            let left = window.innerWidth;
-            
-            function move() {
-                if (gameOver) return;
-                left -= gameSpeed;
-                obstacle.style.left = left + "px";
+    function endGame() {
+        gameOver = true;
+        document.getElementById("restart").style.display = "block";
+        if (score > (localStorage.getItem("dino-hi") || 0)) localStorage.setItem("dino-hi", score);
+    }
 
-                let dinoRect = dino.getBoundingClientRect();
-                let obRect = obstacle.getBoundingClientRect();
-
-                // Advanced Collision (Smaller hitbox for fairness)
-                if (dinoRect.right - 15 > obRect.left && 
-                    dinoRect.left + 15 < obRect.right && 
-                    dinoRect.bottom - 5 > obRect.top) {
-                    endGame();
-                    return;
-                }
-
-                if (left < -150) {
-                    obstacle.remove();
-                    score++;
-                    scoreTxt.innerText = score.toString().padStart(5, '0');
-                    if (score % 8 === 0) gameSpeed += 0.25; 
-                } else {
-                    requestAnimationFrame(move);
-                }
-            }
-            requestAnimationFrame(move);
-
-            // Dynamic Spawn Rate
-            let next = Math.random() * (2000 - 1000) + (1500 - (gameSpeed * 50));
-            setTimeout(spawnObstacle, Math.max(800, next));
-        }
-
-        function endGame() {
-            gameOver = true;
-            document.getElementById("restart").style.display = "block";
-            document.getElementById("final-score").innerText = "Score: " + score;
-            if (score > parseInt(hi)) localStorage.setItem("dino-hi", score);
-        }
-
-        spawnObstacle();
-        Telegram.WebApp.ready();
-        Telegram.WebApp.expand();
-    </script>
+    // Start Game
+    spawnObstacle();
+    addCloud();
+    addGroundDetail();
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+</script>
 </body>
 </html>
