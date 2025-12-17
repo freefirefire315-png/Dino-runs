@@ -1,137 +1,160 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dino Run - Earn Ton</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://adsgram.ai/sdk.js"></script>
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #87CEEB; touch-action: none; -webkit-user-select: none; }
         #game { width: 100vw; height: 300px; background: #f7f7f7; position: relative; border-bottom: 4px solid #535353; margin-top: 50px; overflow: hidden; }
-        #sun { position: absolute; top: 20px; right: 40px; font-size: 40px; z-index: 1; }
-        .cloud { position: absolute; font-size: 30px; color: white; z-index: 1; filter: opacity(0.8); }
-        #dino { width: 50px; height: 50px; position: absolute; bottom: 0; left: 40px; font-size: 44px; z-index: 10; transform: scaleX(-1); will-change: bottom; }
-        .obstacle { position: absolute; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 11; white-space: nowrap; }
-        #ui { padding: 10px 20px; display: flex; justify-content: space-between; font-size: 20px; color: #535353; font-weight: bold; background: #f7f7f7; }
-        #restart { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border: 3px solid #535353; border-radius: 12px; text-align: center; z-index: 100; }
-        button { background: #535353; color: white; border: none; padding: 12px 24px; cursor: pointer; font-size: 18px; border-radius: 5px; }
+        #dino { width: 50px; height: 50px; position: absolute; bottom: 0; left: 40px; font-size: 40px; z-index: 10; transform: scaleX(-1); }
+        .obstacle { position: absolute; bottom: 0; font-size: 30px; z-index: 11; }
+        #ui { padding: 15px; display: flex; justify-content: space-between; font-size: 20px; color: #535353; font-weight: bold; background: #f7f7f7; }
+        #restart { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border: 3px solid #535353; border-radius: 15px; text-align: center; z-index: 100; width: 250px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        button { width: 100%; padding: 15px; margin-top: 10px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; }
+        .btn-revive { background: #2ecc71; border-bottom: 4px solid #27ae60; }
+        .btn-retry { background: #535353; }
+        #status-msg { font-size: 12px; color: #888; margin-top: 10px; }
     </style>
 </head>
 <body onclick="jump()" ontouchstart="jump()">
+
     <div id="ui">
         <span>HI <span id="high-score">00000</span></span>
         <span id="score">00000</span>
     </div>
+
     <div id="game">
-        <div id="sun">☀️</div>
         <div id="dino">🦖</div>
     </div>
+
     <div id="restart">
-        <h2 style="color:#535353; margin:0 0 10px 0;">GAME OVER</h2>
-        <button onclick="location.reload()">RETRY</button>
+        <h2 style="margin: 0 0 15px 0; color: #535353;">GAME OVER</h2>
+        <button id="revive-btn" class="btn-revive">📺 WATCH AD TO REVIVE</button>
+        <button onclick="location.reload()" class="btn-retry">RETRY</button>
+        <p id="status-msg">Revive only available once per run</p>
     </div>
 
 <script>
-    const dino = document.getElementById("dino");
-    const game = document.getElementById("game");
-    const scoreTxt = document.getElementById("score");
-    const highScoreTxt = document.getElementById("high-score");
+    // --- 1. CONFIGURATION ---
+    const adBlockId = "19286"; // <--- PUT YOUR ADSGRAM BLOCK ID HERE
     
-    let score = 0;
-    let gameSpeed = 6; 
-    let gameOver = false;
-    let velocity = 0;
-    let position = 0;
-    let gravity = 0.6;
+    const AdController = window.Adsgram.init({ blockId: adBlockId });
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
 
-    highScoreTxt.innerText = (localStorage.getItem("dino-hi") || "0").padStart(5, '0');
+    // --- 2. GAME VARIABLES ---
+    const dino = document.getElementById("dino");
+    const scoreTxt = document.getElementById("score");
+    const restartDiv = document.getElementById("restart");
+    const reviveBtn = document.getElementById("revive-btn");
 
+    let score = 0, gameSpeed = 6, gameOver = false, canRevive = true;
+    let position = 0, velocity = 0, isJumping = false;
+
+    // --- 3. AD LOGIC (The Money Maker) ---
+    reviveBtn.onclick = (e) => {
+        e.stopPropagation(); // Prevent jump when clicking button
+        
+        // Show the Rewarded Ad
+        AdController.show().then((result) => {
+            // Success! User watched the ad.
+            gameOver = false;
+            canRevive = false; 
+            restartDiv.style.display = "none";
+            
+            // Clear obstacles and resume
+            document.querySelectorAll('.obstacle').forEach(o => o.remove());
+            spawnObstacle();
+            console.log("Ad completed. User rewarded with revive.");
+        }).catch((err) => {
+            // User skipped or ad failed
+            alert("You must watch the full ad to revive!");
+            console.error("Adsgram Error:", err);
+        });
+    };
+
+    // --- 4. GAME ENGINE ---
     function jump() {
         if (position === 0 && !gameOver) {
-            velocity = 13; 
-            requestAnimationFrame(physics);
+            velocity = 12;
+            if (!isJumping) {
+                isJumping = true;
+                requestAnimationFrame(physics);
+            }
         }
     }
 
     function physics() {
-        if (gameOver) return;
+        if (gameOver) { isJumping = false; return; }
         position += velocity;
-        velocity -= gravity;
+        velocity -= 0.6; // Gravity
+        
         if (position <= 0) {
             position = 0;
             velocity = 0;
             dino.style.bottom = "0px";
+            isJumping = false;
             return;
         }
+        
         dino.style.bottom = position + "px";
         requestAnimationFrame(physics);
     }
 
     function spawnObstacle() {
         if (gameOver) return;
+        
         const ob = document.createElement("div");
         ob.classList.add("obstacle");
+        ob.innerHTML = Math.random() > 0.5 ? "🌵" : "🌵🌵";
+        document.getElementById("game").appendChild(ob);
         
-        let rand = Math.random();
-        // BIRD LOGIC: Appears more often as score increases
-        if (rand < 0.3 && score > 15) { 
-            ob.innerHTML = "🦅"; 
-            ob.style.bottom = (Math.random() > 0.5 ? "75px" : "20px"); // Random height birds
-            ob.style.fontSize = "38px"; 
-        } else { 
-            // CACTUS GROUPS
-            let group = Math.random();
-            ob.innerHTML = group > 0.7 ? "🌵🌵🌵" : (group > 0.4 ? "🌵🌵" : "🌵");
-            ob.style.fontSize = "32px";
-        }
-        
-        game.appendChild(ob);
         let left = window.innerWidth;
         
         function move() {
             if (gameOver) return;
             left -= gameSpeed;
             ob.style.left = left + "px";
-
+            
             let d = dino.getBoundingClientRect();
             let o = ob.getBoundingClientRect();
-
-            if (d.right - 15 > o.left && d.left + 15 < o.right && d.bottom - 8 > o.top && d.top + 8 < o.bottom) {
-                gameOver = true;
-                document.getElementById("restart").style.display = "block";
-                if (score > (localStorage.getItem("dino-hi") || 0)) localStorage.setItem("dino-hi", score);
+            
+            // Collision detection
+            if (d.right-15 > o.left && d.left+15 < o.right && d.bottom-5 > o.top) {
+                endGame();
                 return;
             }
 
-            if (left < -150) {
+            if (left < -100) {
                 ob.remove();
                 score++;
                 scoreTxt.innerText = score.toString().padStart(5, '0');
-                // PROGRESSIVE SPEED
-                if (score % 5 === 0) gameSpeed += 0.4; 
-            } else { requestAnimationFrame(move); }
+                if (score % 10 === 0) gameSpeed += 0.5; // Gradually get harder
+            } else {
+                requestAnimationFrame(move);
+            }
         }
         requestAnimationFrame(move);
-        let nextSpawn = Math.random() * 1500 + (1000 - (gameSpeed * 15));
-        setTimeout(spawnObstacle, Math.max(700, nextSpawn));
+        
+        // Random time for next obstacle
+        let nextSpawn = Math.random() * 1500 + (1000 - (gameSpeed * 20));
+        setTimeout(spawnObstacle, Math.max(nextSpawn, 700));
     }
 
-    function addCloud() {
-        if (gameOver) return;
-        const c = document.createElement("div");
-        c.className = "cloud";
-        c.innerHTML = "☁️";
-        c.style.top = Math.random() * 80 + "px";
-        game.appendChild(c);
-        let p = window.innerWidth;
-        function m() { p -= 1; c.style.left = p + "px"; if (p > -60 && !gameOver) requestAnimationFrame(m); else c.remove(); }
-        m();
-        setTimeout(addCloud, 4000);
+    function endGame() {
+        gameOver = true;
+        restartDiv.style.display = "block";
+        reviveBtn.style.display = canRevive ? "block" : "none";
+        document.getElementById("status-msg").innerText = canRevive ? 
+            "Watch ad for a second chance!" : "Revive used this round.";
     }
 
+    // Start
     spawnObstacle();
-    addCloud();
-    Telegram.WebApp.ready();
-    Telegram.WebApp.expand();
 </script>
 </body>
 </html>
