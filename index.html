@@ -5,25 +5,29 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://adsgram.ai/sdk.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #f7f7f7; }
+        body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #f7f7f7; touch-action: none; }
         #game { width: 100vw; height: 200px; background: white; position: relative; border-bottom: 2px solid #535353; margin-top: 100px; }
-        /* The Dino Sprite */
-        #dino { width: 40px; height: 40px; position: absolute; bottom: 0; left: 20px; font-size: 40px; line-height: 40px; display: flex; align-items: center; justify-content: center; transition: bottom 0.1s; z-index: 10; }
-        /* The Cactus Sprite */
-        .cactus { width: 30px; height: 40px; position: absolute; bottom: 0; right: -50px; font-size: 30px; display: flex; align-items: center; justify-content: center; }
+        
+        /* THE DINO - Flipped to face Right */
+        #dino { 
+            width: 40px; height: 40px; position: absolute; bottom: 0; left: 40px; 
+            font-size: 40px; display: flex; align-items: center; justify-content: center; 
+            z-index: 10; transform: scaleX(-1); /* This flips the dino! */
+        }
+        
+        .cactus { width: 30px; height: 40px; position: absolute; bottom: 0; font-size: 30px; display: flex; align-items: center; justify-content: center; }
         #score { color: #535353; padding: 20px; font-size: 24px; text-align: right; font-weight: bold; }
         #restart { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border: 2px solid #535353; border-radius: 8px; text-align: center; z-index: 100; }
-        .cloud { position: absolute; font-size: 20px; color: #d3d3d3; z-index: 1; }
     </style>
 </head>
-<body onclick="jump()">
+<body onclick="jump()" ontouchstart="jump()">
     <div id="score">00000</div>
     <div id="game">
         <div id="dino">🦖</div>
     </div>
     <div id="restart">
         <h2 style="color:#535353; margin:0">G A M E  O V E R</h2>
-        <button onclick="location.reload()" style="background:#535353; color:white; border:none; padding:10px 20px; margin-top:15px; cursor:pointer; font-weight:bold;">RESTART</button>
+        <button onclick="location.reload()" style="background:#535353; color:white; border:none; padding:10px 20px; margin-top:15px; cursor:pointer;">RESTART</button>
     </div>
 
     <script>
@@ -36,76 +40,61 @@
         function jump() {
             if (isJumping || gameOver) return;
             isJumping = true;
-            let startPos = 0;
-            let upInterval = setInterval(() => {
-                if (startPos >= 100) {
-                    clearInterval(upInterval);
-                    let downInterval = setInterval(() => {
-                        if (startPos <= 0) {
-                            clearInterval(downInterval);
+            
+            let position = 0;
+            // Upward movement
+            let upTimer = setInterval(() => {
+                if (position >= 120) {
+                    clearInterval(upTimer);
+                    // Downward movement
+                    let downTimer = setInterval(() => {
+                        if (position <= 0) {
+                            clearInterval(downTimer);
                             isJumping = false;
+                            position = 0;
                         }
-                        startPos -= 5;
-                        dino.style.bottom = startPos + "px";
-                    }, 20);
+                        position -= 5;
+                        dino.style.bottom = position + "px";
+                    }, 15);
                 }
-                startPos += 5;
-                dino.style.bottom = startPos + "px";
-            }, 20);
+                position += 5;
+                dino.style.bottom = position + "px";
+            }, 15);
         }
 
         function createCactus() {
             if (gameOver) return;
             let cactus = document.createElement("div");
             cactus.classList.add("cactus");
-            cactus.innerHTML = "🌵"; // Real Cactus Icon
+            cactus.innerHTML = "🌵";
             document.getElementById("game").appendChild(cactus);
             
-            let pos = window.innerWidth;
-            let move = setInterval(() => {
-                if (gameOver) { clearInterval(move); return; }
-                pos -= 7; // Speed of cactus
-                cactus.style.left = pos + "px";
+            let cactusLeft = window.innerWidth;
+            let moveCactus = setInterval(() => {
+                if (gameOver) { clearInterval(moveCactus); return; }
+                cactusLeft -= 7;
+                cactus.style.left = cactusLeft + "px";
 
-                let dinoBottom = parseInt(window.getComputedStyle(dino).getPropertyValue("bottom"));
-                
-                // Professional Collision Logic
-                if (pos < 50 && pos > 20 && dinoBottom < 35) {
+                let dinoBottom = parseInt(dino.style.bottom) || 0;
+
+                // Collision detection (Checking if Dino and Cactus hit)
+                if (cactusLeft < 80 && cactusLeft > 40 && dinoBottom < 40) {
                     gameOver = true;
                     document.getElementById("restart").style.display = "block";
                 }
 
-                if (pos < -50) {
-                    clearInterval(move);
+                if (cactusLeft < -50) {
+                    clearInterval(moveCactus);
                     cactus.remove();
                     score++;
                     scoreTxt.innerText = score.toString().padStart(5, '0');
                 }
             }, 20);
             
-            let nextSpawn = Math.random() * 1500 + 800;
-            setTimeout(createCactus, nextSpawn);
-        }
-
-        // Add some floating clouds for decoration
-        function createCloud() {
-            if (gameOver) return;
-            let cloud = document.createElement("div");
-            cloud.classList.add("cloud");
-            cloud.innerHTML = "☁️";
-            cloud.style.top = Math.random() * 80 + "px";
-            document.getElementById("game").appendChild(cloud);
-            let pos = window.innerWidth;
-            let moveCloud = setInterval(() => {
-                pos -= 1;
-                cloud.style.left = pos + "px";
-                if (pos < -50) { clearInterval(moveCloud); cloud.remove(); }
-            }, 30);
-            setTimeout(createCloud, 5000);
+            setTimeout(createCactus, Math.random() * 2000 + 1000);
         }
 
         createCactus();
-        createCloud();
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
     </script>
