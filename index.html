@@ -8,12 +8,10 @@
         body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #f7f7f7; touch-action: none; -webkit-user-select: none; }
         #game { width: 100vw; height: 250px; background: white; position: relative; border-bottom: 2px solid #535353; margin-top: 50px; }
         #dino { width: 44px; height: 44px; position: absolute; bottom: 0; left: 40px; font-size: 40px; z-index: 10; transform: scaleX(-1); will-change: bottom; }
-        .obstacle { position: absolute; bottom: 0; display: flex; align-items: center; justify-content: center; will-change: left; }
-        .cactus { font-size: 30px; width: 30px; height: 40px; }
-        .bird { font-size: 30px; width: 35px; height: 35px; bottom: 60px !important; } /* Birds fly higher! */
+        .obstacle { position: absolute; bottom: 0; display: flex; align-items: center; justify-content: center; will-change: left; white-space: nowrap; }
         #score-container { padding: 10px 20px; display: flex; justify-content: space-between; font-size: 20px; color: #535353; font-weight: bold; }
         #restart { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border: 2px solid #535353; border-radius: 8px; text-align: center; z-index: 100; }
-        button { background: #535353; color: white; border: none; padding: 10px 20px; cursor: pointer; font-family: inherit; }
+        button { background: #535353; color: white; border: none; padding: 10px 20px; cursor: pointer; font-family: inherit; font-weight: bold; border-radius: 4px; }
     </style>
 </head>
 <body onclick="jump()" ontouchstart="jump()">
@@ -37,39 +35,31 @@
         
         let score = 0;
         let gameSpeed = 7; 
-        let isJumping = false;
         let gameOver = false;
         let gravity = 0.6;
         let velocity = 0;
         let position = 0;
 
-        // Load High Score
         let hi = localStorage.getItem("dino-hi") || "0";
         highScoreTxt.innerText = hi.padStart(5, '0');
 
-        // Smooth Physics-based Jump
         function jump() {
             if (position === 0 && !gameOver) {
-                velocity = 12; // Initial jump force
-                isJumping = true;
+                velocity = 12; 
                 requestAnimationFrame(applyPhysics);
             }
         }
 
         function applyPhysics() {
             if (gameOver) return;
-            
             position += velocity;
             velocity -= gravity;
-
             if (position <= 0) {
                 position = 0;
                 velocity = 0;
-                isJumping = false;
                 dino.style.bottom = "0px";
                 return;
             }
-
             dino.style.bottom = position + "px";
             requestAnimationFrame(applyPhysics);
         }
@@ -80,14 +70,24 @@
             const obstacle = document.createElement("div");
             obstacle.classList.add("obstacle");
             
-            // Randomly choose between Cactus and Bird
-            const isBird = Math.random() > 0.8 && score > 20; 
-            obstacle.innerHTML = isBird ? "🦅" : (Math.random() > 0.5 ? "🌵" : "🌵🌵");
-            if (isBird) obstacle.classList.add("bird");
-            else obstacle.classList.add("cactus");
+            // OBSTACLE TYPE LOGIC
+            let chance = Math.random();
+            if (chance < 0.2 && score > 30) {
+                obstacle.innerHTML = "🦅"; // Bird
+                obstacle.style.bottom = "65px";
+                obstacle.style.fontSize = "32px";
+            } else if (chance < 0.5) {
+                obstacle.innerHTML = "🌵🌵"; // Double Cactus
+                obstacle.style.fontSize = "30px";
+            } else if (chance < 0.65 && score > 50) {
+                obstacle.innerHTML = "🌵🌵🌵"; // Triple Cactus (Hard!)
+                obstacle.style.fontSize = "30px";
+            } else {
+                obstacle.innerHTML = "🌵"; // Single Cactus
+                obstacle.style.fontSize = "30px";
+            }
 
             document.getElementById("game").appendChild(obstacle);
-            
             let left = window.innerWidth;
             
             function move() {
@@ -95,41 +95,38 @@
                 left -= gameSpeed;
                 obstacle.style.left = left + "px";
 
-                // Precise Collision Detection
                 let dinoRect = dino.getBoundingClientRect();
                 let obRect = obstacle.getBoundingClientRect();
 
-                if (dinoRect.right > obRect.left + 10 && 
-                    dinoRect.left < obRect.right - 10 && 
-                    dinoRect.bottom > obRect.top + 5) {
+                // Advanced Collision (Smaller hitbox for fairness)
+                if (dinoRect.right - 15 > obRect.left && 
+                    dinoRect.left + 15 < obRect.right && 
+                    dinoRect.bottom - 5 > obRect.top) {
                     endGame();
                     return;
                 }
 
-                if (left < -50) {
+                if (left < -150) {
                     obstacle.remove();
                     score++;
                     scoreTxt.innerText = score.toString().padStart(5, '0');
-                    // INCREASE SPEED EVERY 10 POINTS
-                    if (score % 10 === 0) gameSpeed += 0.2; 
+                    if (score % 8 === 0) gameSpeed += 0.25; 
                 } else {
                     requestAnimationFrame(move);
                 }
             }
             requestAnimationFrame(move);
 
-            // Random spawn timing
-            let next = Math.max(700, 2000 - (gameSpeed * 100));
-            setTimeout(spawnObstacle, next + Math.random() * 1000);
+            // Dynamic Spawn Rate
+            let next = Math.random() * (2000 - 1000) + (1500 - (gameSpeed * 50));
+            setTimeout(spawnObstacle, Math.max(800, next));
         }
 
         function endGame() {
             gameOver = true;
             document.getElementById("restart").style.display = "block";
             document.getElementById("final-score").innerText = "Score: " + score;
-            if (score > parseInt(hi)) {
-                localStorage.setItem("dino-hi", score);
-            }
+            if (score > parseInt(hi)) localStorage.setItem("dino-hi", score);
         }
 
         spawnObstacle();
