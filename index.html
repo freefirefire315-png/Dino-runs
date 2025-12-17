@@ -5,96 +5,134 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://adsgram.ai/sdk.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #f7f7f7; touch-action: none; }
-        #game { width: 100vw; height: 200px; background: white; position: relative; border-bottom: 2px solid #535353; margin-top: 100px; }
-        
-        /* THE DINO - Flipped to face Right */
-        #dino { 
-            width: 40px; height: 40px; position: absolute; bottom: 0; left: 40px; 
-            font-size: 40px; display: flex; align-items: center; justify-content: center; 
-            z-index: 10; transform: scaleX(-1); /* This flips the dino! */
-        }
-        
-        .cactus { width: 30px; height: 40px; position: absolute; bottom: 0; font-size: 30px; display: flex; align-items: center; justify-content: center; }
-        #score { color: #535353; padding: 20px; font-size: 24px; text-align: right; font-weight: bold; }
+        body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #f7f7f7; touch-action: none; -webkit-user-select: none; }
+        #game { width: 100vw; height: 250px; background: white; position: relative; border-bottom: 2px solid #535353; margin-top: 50px; }
+        #dino { width: 44px; height: 44px; position: absolute; bottom: 0; left: 40px; font-size: 40px; z-index: 10; transform: scaleX(-1); will-change: bottom; }
+        .obstacle { position: absolute; bottom: 0; display: flex; align-items: center; justify-content: center; will-change: left; }
+        .cactus { font-size: 30px; width: 30px; height: 40px; }
+        .bird { font-size: 30px; width: 35px; height: 35px; bottom: 60px !important; } /* Birds fly higher! */
+        #score-container { padding: 10px 20px; display: flex; justify-content: space-between; font-size: 20px; color: #535353; font-weight: bold; }
         #restart { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border: 2px solid #535353; border-radius: 8px; text-align: center; z-index: 100; }
+        button { background: #535353; color: white; border: none; padding: 10px 20px; cursor: pointer; font-family: inherit; }
     </style>
 </head>
 <body onclick="jump()" ontouchstart="jump()">
-    <div id="score">00000</div>
+    <div id="score-container">
+        <span>HI <span id="high-score">00000</span></span>
+        <span id="score">00000</span>
+    </div>
     <div id="game">
         <div id="dino">🦖</div>
     </div>
     <div id="restart">
         <h2 style="color:#535353; margin:0">G A M E  O V E R</h2>
-        <button onclick="location.reload()" style="background:#535353; color:white; border:none; padding:10px 20px; margin-top:15px; cursor:pointer;">RESTART</button>
+        <p id="final-score"></p>
+        <button onclick="location.reload()">RETRY</button>
     </div>
 
     <script>
-        let dino = document.getElementById("dino");
-        let scoreTxt = document.getElementById("score");
+        const dino = document.getElementById("dino");
+        const scoreTxt = document.getElementById("score");
+        const highScoreTxt = document.getElementById("high-score");
+        
         let score = 0;
+        let gameSpeed = 7; 
         let isJumping = false;
         let gameOver = false;
+        let gravity = 0.6;
+        let velocity = 0;
+        let position = 0;
 
+        // Load High Score
+        let hi = localStorage.getItem("dino-hi") || "0";
+        highScoreTxt.innerText = hi.padStart(5, '0');
+
+        // Smooth Physics-based Jump
         function jump() {
-            if (isJumping || gameOver) return;
-            isJumping = true;
-            
-            let position = 0;
-            // Upward movement
-            let upTimer = setInterval(() => {
-                if (position >= 120) {
-                    clearInterval(upTimer);
-                    // Downward movement
-                    let downTimer = setInterval(() => {
-                        if (position <= 0) {
-                            clearInterval(downTimer);
-                            isJumping = false;
-                            position = 0;
-                        }
-                        position -= 5;
-                        dino.style.bottom = position + "px";
-                    }, 15);
-                }
-                position += 5;
-                dino.style.bottom = position + "px";
-            }, 15);
+            if (position === 0 && !gameOver) {
+                velocity = 12; // Initial jump force
+                isJumping = true;
+                requestAnimationFrame(applyPhysics);
+            }
         }
 
-        function createCactus() {
+        function applyPhysics() {
             if (gameOver) return;
-            let cactus = document.createElement("div");
-            cactus.classList.add("cactus");
-            cactus.innerHTML = "🌵";
-            document.getElementById("game").appendChild(cactus);
             
-            let cactusLeft = window.innerWidth;
-            let moveCactus = setInterval(() => {
-                if (gameOver) { clearInterval(moveCactus); return; }
-                cactusLeft -= 7;
-                cactus.style.left = cactusLeft + "px";
+            position += velocity;
+            velocity -= gravity;
 
-                let dinoBottom = parseInt(dino.style.bottom) || 0;
+            if (position <= 0) {
+                position = 0;
+                velocity = 0;
+                isJumping = false;
+                dino.style.bottom = "0px";
+                return;
+            }
 
-                // Collision detection (Checking if Dino and Cactus hit)
-                if (cactusLeft < 80 && cactusLeft > 40 && dinoBottom < 40) {
-                    gameOver = true;
-                    document.getElementById("restart").style.display = "block";
+            dino.style.bottom = position + "px";
+            requestAnimationFrame(applyPhysics);
+        }
+
+        function spawnObstacle() {
+            if (gameOver) return;
+
+            const obstacle = document.createElement("div");
+            obstacle.classList.add("obstacle");
+            
+            // Randomly choose between Cactus and Bird
+            const isBird = Math.random() > 0.8 && score > 20; 
+            obstacle.innerHTML = isBird ? "🦅" : (Math.random() > 0.5 ? "🌵" : "🌵🌵");
+            if (isBird) obstacle.classList.add("bird");
+            else obstacle.classList.add("cactus");
+
+            document.getElementById("game").appendChild(obstacle);
+            
+            let left = window.innerWidth;
+            
+            function move() {
+                if (gameOver) return;
+                left -= gameSpeed;
+                obstacle.style.left = left + "px";
+
+                // Precise Collision Detection
+                let dinoRect = dino.getBoundingClientRect();
+                let obRect = obstacle.getBoundingClientRect();
+
+                if (dinoRect.right > obRect.left + 10 && 
+                    dinoRect.left < obRect.right - 10 && 
+                    dinoRect.bottom > obRect.top + 5) {
+                    endGame();
+                    return;
                 }
 
-                if (cactusLeft < -50) {
-                    clearInterval(moveCactus);
-                    cactus.remove();
+                if (left < -50) {
+                    obstacle.remove();
                     score++;
                     scoreTxt.innerText = score.toString().padStart(5, '0');
+                    // INCREASE SPEED EVERY 10 POINTS
+                    if (score % 10 === 0) gameSpeed += 0.2; 
+                } else {
+                    requestAnimationFrame(move);
                 }
-            }, 20);
-            
-            setTimeout(createCactus, Math.random() * 2000 + 1000);
+            }
+            requestAnimationFrame(move);
+
+            // Random spawn timing
+            let next = Math.max(700, 2000 - (gameSpeed * 100));
+            setTimeout(spawnObstacle, next + Math.random() * 1000);
         }
 
-        createCactus();
+        function endGame() {
+            gameOver = true;
+            document.getElementById("restart").style.display = "block";
+            document.getElementById("final-score").innerText = "Score: " + score;
+            if (score > parseInt(hi)) {
+                localStorage.setItem("dino-hi", score);
+            }
+        }
+
+        spawnObstacle();
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
     </script>
