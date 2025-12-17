@@ -6,23 +6,14 @@
     <script src="https://adsgram.ai/sdk.js"></script>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #87CEEB; touch-action: none; -webkit-user-select: none; }
-        
-        /* Game Container */
         #game { width: 100vw; height: 300px; background: #f7f7f7; position: relative; border-bottom: 4px solid #535353; margin-top: 50px; overflow: hidden; }
-        
-        /* Background Elements */
         #sun { position: absolute; top: 20px; right: 40px; font-size: 40px; z-index: 1; }
         .cloud { position: absolute; font-size: 30px; color: white; z-index: 1; filter: opacity(0.8); }
-        .ground-detail { position: absolute; bottom: 5px; height: 2px; background: #d3d3d3; z-index: 2; }
-
-        /* Characters */
         #dino { width: 50px; height: 50px; position: absolute; bottom: 0; left: 40px; font-size: 44px; z-index: 10; transform: scaleX(-1); will-change: bottom; }
         .obstacle { position: absolute; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 11; white-space: nowrap; }
-        
-        /* UI */
         #ui { padding: 10px 20px; display: flex; justify-content: space-between; font-size: 20px; color: #535353; font-weight: bold; background: #f7f7f7; }
-        #restart { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border: 3px solid #535353; border-radius: 12px; text-align: center; z-index: 100; box-shadow: 0 0 20px rgba(0,0,0,0.2); }
-        button { background: #535353; color: white; border: none; padding: 12px 24px; cursor: pointer; font-family: inherit; font-size: 18px; border-radius: 5px; }
+        #restart { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border: 3px solid #535353; border-radius: 12px; text-align: center; z-index: 100; }
+        button { background: #535353; color: white; border: none; padding: 12px 24px; cursor: pointer; font-size: 18px; border-radius: 5px; }
     </style>
 </head>
 <body onclick="jump()" ontouchstart="jump()">
@@ -30,14 +21,12 @@
         <span>HI <span id="high-score">00000</span></span>
         <span id="score">00000</span>
     </div>
-    
     <div id="game">
         <div id="sun">☀️</div>
         <div id="dino">🦖</div>
     </div>
-
     <div id="restart">
-        <h2 style="color:#535353; margin:0 0 10px 0;">G A M E  O V E R</h2>
+        <h2 style="color:#535353; margin:0 0 10px 0;">GAME OVER</h2>
         <button onclick="location.reload()">RETRY</button>
     </div>
 
@@ -48,13 +37,12 @@
     const highScoreTxt = document.getElementById("high-score");
     
     let score = 0;
-    let gameSpeed = 7; 
+    let gameSpeed = 6; 
     let gameOver = false;
     let velocity = 0;
     let position = 0;
     let gravity = 0.6;
 
-    // Set High Score
     highScoreTxt.innerText = (localStorage.getItem("dino-hi") || "0").padStart(5, '0');
 
     function jump() {
@@ -84,14 +72,16 @@
         ob.classList.add("obstacle");
         
         let rand = Math.random();
-        if (rand < 0.15 && score > 25) { 
-            ob.innerHTML = "🦅"; ob.style.bottom = "70px"; ob.style.fontSize = "35px"; 
-        } else if (rand < 0.4) { 
-            ob.innerHTML = "🌵🌵"; ob.style.fontSize = "32px";
-        } else if (rand < 0.55 && score > 50) { 
-            ob.innerHTML = "🌵🌵🌵"; ob.style.fontSize = "32px";
+        // BIRD LOGIC: Appears more often as score increases
+        if (rand < 0.3 && score > 15) { 
+            ob.innerHTML = "🦅"; 
+            ob.style.bottom = (Math.random() > 0.5 ? "75px" : "20px"); // Random height birds
+            ob.style.fontSize = "38px"; 
         } else { 
-            ob.innerHTML = "🌵"; ob.style.fontSize = "32px";
+            // CACTUS GROUPS
+            let group = Math.random();
+            ob.innerHTML = group > 0.7 ? "🌵🌵🌵" : (group > 0.4 ? "🌵🌵" : "🌵");
+            ob.style.fontSize = "32px";
         }
         
         game.appendChild(ob);
@@ -105,9 +95,10 @@
             let d = dino.getBoundingClientRect();
             let o = ob.getBoundingClientRect();
 
-            // Precise collision
-            if (d.right - 15 > o.left && d.left + 15 < o.right && d.bottom - 8 > o.top) {
-                endGame();
+            if (d.right - 15 > o.left && d.left + 15 < o.right && d.bottom - 8 > o.top && d.top + 8 < o.bottom) {
+                gameOver = true;
+                document.getElementById("restart").style.display = "block";
+                if (score > (localStorage.getItem("dino-hi") || 0)) localStorage.setItem("dino-hi", score);
                 return;
             }
 
@@ -115,11 +106,13 @@
                 ob.remove();
                 score++;
                 scoreTxt.innerText = score.toString().padStart(5, '0');
-                if (score % 7 === 0) gameSpeed += 0.3; 
+                // PROGRESSIVE SPEED
+                if (score % 5 === 0) gameSpeed += 0.4; 
             } else { requestAnimationFrame(move); }
         }
         requestAnimationFrame(move);
-        setTimeout(spawnObstacle, Math.random() * 1500 + (1200 - gameSpeed * 20));
+        let nextSpawn = Math.random() * 1500 + (1000 - (gameSpeed * 15));
+        setTimeout(spawnObstacle, Math.max(700, nextSpawn));
     }
 
     function addCloud() {
@@ -130,34 +123,13 @@
         c.style.top = Math.random() * 80 + "px";
         game.appendChild(c);
         let p = window.innerWidth;
-        function m() { p -= 1.5; c.style.left = p + "px"; if (p > -60 && !gameOver) requestAnimationFrame(m); else c.remove(); }
+        function m() { p -= 1; c.style.left = p + "px"; if (p > -60 && !gameOver) requestAnimationFrame(m); else c.remove(); }
         m();
-        setTimeout(addCloud, 3000 + Math.random() * 3000);
+        setTimeout(addCloud, 4000);
     }
 
-    function addGroundDetail() {
-        if (gameOver) return;
-        const g = document.createElement("div");
-        g.className = "ground-detail";
-        g.style.width = (Math.random() * 20 + 5) + "px";
-        g.style.left = window.innerWidth + "px";
-        game.appendChild(g);
-        let p = window.innerWidth;
-        function m() { p -= gameSpeed; g.style.left = p + "px"; if (p > -30 && !gameOver) requestAnimationFrame(m); else g.remove(); }
-        m();
-        setTimeout(addGroundDetail, 200);
-    }
-
-    function endGame() {
-        gameOver = true;
-        document.getElementById("restart").style.display = "block";
-        if (score > (localStorage.getItem("dino-hi") || 0)) localStorage.setItem("dino-hi", score);
-    }
-
-    // Start Game
     spawnObstacle();
     addCloud();
-    addGroundDetail();
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
 </script>
