@@ -5,101 +5,109 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://adsgram.ai/sdk.js"></script>
     <style>
-        body { margin: 0; background: #f0f0f0; font-family: sans-serif; overflow: hidden; touch-action: none; }
-        #game { position: relative; width: 100vw; height: 200px; background: white; border-bottom: 4px solid #555; margin-top: 50px; }
-        /* The Dino - A Green Box */
-        #dino { position: absolute; bottom: 0; left: 50px; width: 35px; height: 35px; background: #2ecc71; border-radius: 4px; }
-        /* The Cactus - A Red Box */
-        .cactus { position: absolute; bottom: 0; width: 20px; height: 40px; background: #e74c3c; }
-        #score { padding: 10px; font-size: 20px; font-weight: bold; }
-        #menu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); 
-                display: none; flex-direction: column; align-items: center; justify-content: center; color: white; }
-        button { padding: 15px 30px; font-size: 18px; cursor: pointer; border: none; border-radius: 8px; margin: 10px; }
+        body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #f7f7f7; }
+        #game { width: 100vw; height: 200px; background: white; position: relative; border-bottom: 2px solid #535353; margin-top: 100px; }
+        /* The Dino Sprite */
+        #dino { width: 40px; height: 40px; position: absolute; bottom: 0; left: 20px; font-size: 40px; line-height: 40px; display: flex; align-items: center; justify-content: center; transition: bottom 0.1s; z-index: 10; }
+        /* The Cactus Sprite */
+        .cactus { width: 30px; height: 40px; position: absolute; bottom: 0; right: -50px; font-size: 30px; display: flex; align-items: center; justify-content: center; }
+        #score { color: #535353; padding: 20px; font-size: 24px; text-align: right; font-weight: bold; }
+        #restart { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border: 2px solid #535353; border-radius: 8px; text-align: center; z-index: 100; }
+        .cloud { position: absolute; font-size: 20px; color: #d3d3d3; z-index: 1; }
     </style>
 </head>
 <body onclick="jump()">
-    <div id="score">Score: 0</div>
+    <div id="score">00000</div>
     <div id="game">
-        <div id="dino"></div>
+        <div id="dino">🦖</div>
     </div>
-    <div id="menu">
-        <h1>GAME OVER</h1>
-        <button onclick="showAd()" style="background: #f1c40f;">📺 WATCH AD TO REVIVE</button>
-        <button onclick="location.reload()" style="background: #95a5a6;">RESTART</button>
+    <div id="restart">
+        <h2 style="color:#535353; margin:0">G A M E  O V E R</h2>
+        <button onclick="location.reload()" style="background:#535353; color:white; border:none; padding:10px 20px; margin-top:15px; cursor:pointer; font-weight:bold;">RESTART</button>
     </div>
 
-<script>
-    const dino = document.getElementById("dino");
-    const game = document.getElementById("game");
-    const menu = document.getElementById("menu");
-    let score = 0;
-    let isJumping = false;
-    let isGameOver = false;
+    <script>
+        let dino = document.getElementById("dino");
+        let scoreTxt = document.getElementById("score");
+        let score = 0;
+        let isJumping = false;
+        let gameOver = false;
 
-    // IMPORTANT: Get this from Adsgram.ai
-    const AdController = window.Adsgram.init({ blockId: "4538" }); // Sample ID, replace with yours!
+        function jump() {
+            if (isJumping || gameOver) return;
+            isJumping = true;
+            let startPos = 0;
+            let upInterval = setInterval(() => {
+                if (startPos >= 100) {
+                    clearInterval(upInterval);
+                    let downInterval = setInterval(() => {
+                        if (startPos <= 0) {
+                            clearInterval(downInterval);
+                            isJumping = false;
+                        }
+                        startPos -= 5;
+                        dino.style.bottom = startPos + "px";
+                    }, 20);
+                }
+                startPos += 5;
+                dino.style.bottom = startPos + "px";
+            }, 20);
+        }
 
-    function jump() {
-        if (isJumping || isGameOver) return;
-        isJumping = true;
-        let pos = 0;
-        let up = setInterval(() => {
-            if (pos >= 100) {
-                clearInterval(up);
-                let down = setInterval(() => {
-                    if (pos <= 0) { clearInterval(down); isJumping = false; }
-                    pos -= 4;
-                    dino.style.bottom = pos + "px";
-                }, 20);
-            }
-            pos += 4;
-            dino.style.bottom = pos + "px";
-        }, 20);
-    }
+        function createCactus() {
+            if (gameOver) return;
+            let cactus = document.createElement("div");
+            cactus.classList.add("cactus");
+            cactus.innerHTML = "🌵"; // Real Cactus Icon
+            document.getElementById("game").appendChild(cactus);
+            
+            let pos = window.innerWidth;
+            let move = setInterval(() => {
+                if (gameOver) { clearInterval(move); return; }
+                pos -= 7; // Speed of cactus
+                cactus.style.left = pos + "px";
 
-    function spawnCactus() {
-        if (isGameOver) return;
-        const cactus = document.createElement("div");
-        cactus.classList.add("cactus");
-        game.appendChild(cactus);
-        let cactusPos = window.innerWidth;
-        
-        let move = setInterval(() => {
-            if (isGameOver) { clearInterval(move); return; }
-            cactusPos -= 5;
-            cactus.style.left = cactusPos + "px";
+                let dinoBottom = parseInt(window.getComputedStyle(dino).getPropertyValue("bottom"));
+                
+                // Professional Collision Logic
+                if (pos < 50 && pos > 20 && dinoBottom < 35) {
+                    gameOver = true;
+                    document.getElementById("restart").style.display = "block";
+                }
 
-            if (cactusPos < -20) {
-                clearInterval(move);
-                cactus.remove();
-                score++;
-                document.getElementById("score").innerText = "Score: " + score;
-            }
+                if (pos < -50) {
+                    clearInterval(move);
+                    cactus.remove();
+                    score++;
+                    scoreTxt.innerText = score.toString().padStart(5, '0');
+                }
+            }, 20);
+            
+            let nextSpawn = Math.random() * 1500 + 800;
+            setTimeout(createCactus, nextSpawn);
+        }
 
-            // Simple Collision Check
-            let dinoTop = parseInt(window.getComputedStyle(dino).getPropertyValue("top"));
-            if (cactusPos < 85 && cactusPos > 50 && dinoTop >= 165) {
-                isGameOver = true;
-                menu.style.display = "flex";
-            }
-        }, 20);
+        // Add some floating clouds for decoration
+        function createCloud() {
+            if (gameOver) return;
+            let cloud = document.createElement("div");
+            cloud.classList.add("cloud");
+            cloud.innerHTML = "☁️";
+            cloud.style.top = Math.random() * 80 + "px";
+            document.getElementById("game").appendChild(cloud);
+            let pos = window.innerWidth;
+            let moveCloud = setInterval(() => {
+                pos -= 1;
+                cloud.style.left = pos + "px";
+                if (pos < -50) { clearInterval(moveCloud); cloud.remove(); }
+            }, 30);
+            setTimeout(createCloud, 5000);
+        }
 
-        setTimeout(spawnCactus, Math.random() * 2000 + 1000);
-    }
-
-    async function showAd() {
-        AdController.show().then((result) => {
-            if (result.done) {
-                isGameOver = false;
-                menu.style.display = "none";
-                document.querySelectorAll('.cactus').forEach(c => c.remove());
-                spawnCactus();
-            }
-        }).catch(() => { alert("No ads available! Restarting..."); location.reload(); });
-    }
-
-    spawnCactus();
-    Telegram.WebApp.ready();
-</script>
+        createCactus();
+        createCloud();
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+    </script>
 </body>
 </html>
